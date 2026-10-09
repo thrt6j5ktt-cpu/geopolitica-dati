@@ -41,9 +41,14 @@ def diagnostica():
     except ValueError:
         print("Risposta non leggibile:", body[:500])
         return
-    trovate = [i for i in items if str(i.get("dbid", i.get("id", ""))).startswith("px-x-03020")]
+    print("Struttura dei primi 3 elementi:")
+    for i in items[:3]:
+        print("  ", json.dumps(i, ensure_ascii=False))
+    parole = ("frontal", "0302", "grenzg")
+    trovate = [i for i in items
+               if any(p in json.dumps(i, ensure_ascii=False).lower() for p in parole)]
     for i in trovate:
-        print(i.get("dbid", i.get("id")), "|", i.get("text"))
+        print("TROVATA:", json.dumps(i, ensure_ascii=False))
     print(f"Tabelle frontalieri trovate: {len(trovate)} (su {len(items)} totali)")
 
 
