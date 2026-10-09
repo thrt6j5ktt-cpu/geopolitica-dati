@@ -1,38 +1,63 @@
 """
-Acquisizione locale — UST/BFS (frontalieri)
+Acquisizione UST/BFS (frontalieri) — eseguito da GitHub Actions, non sul PC.
 
-Perché in locale: Databricks Free Edition blocca le connessioni verso
-siti esterni non autorizzati, quindi il download si fa sul tuo PC e il file
-si carica poi nel volume Databricks (livello Bronze).
-
-Uso:  python scarica_bfs.py
-Output: cartella ./bronze/bfs/<TABLE_ID>/metadata/ con
-        <timestamp>_metadata.json e <timestamp>_provenance.json
+Versione 2: se l'UST rifiuta la richiesta, lo script non si limita a fallire
+ma stampa la risposta dell'UST e l'elenco delle tabelle "frontalieri" che
+l'API conosce davvero, così capiamo subito il codice tabella corretto.
 """
 import os
+import sys
 import json
 import hashlib
 import datetime as dt
 import urllib.request
+import urllib.error
 
 TABLE_ID = "px-x-0302010000_105"
 LANG = "it"
-URL = f"https://www.pxweb.bfs.admin.ch/api/v1/{LANG}/{TABLE_ID}/{TABLE_ID}.px"
+BASE = "https://www.pxweb.bfs.admin.ch/api/v1"
+URL = f"{BASE}/{LANG}/{TABLE_ID}/{TABLE_ID}.px"
 OUT_DIR = os.path.join("bronze", "bfs", TABLE_ID, "metadata")
+HEADERS = {"User-Agent": "geopolitica-dati/1.0 (GitHub Actions)", "Accept": "application/json"}
+
+
+def get(url):
+    """Esegue una GET e restituisce (codice HTTP, contenuto in byte)."""
+    req = urllib.request.Request(url, headers=HEADERS)
+    try:
+        with urllib.request.urlopen(req, timeout=60) as r:
+            return r.status, r.read()
+    except urllib.error.HTTPError as e:
+        return e.code, e.read()
+
+
+def diagnostica():
+    """Elenca le tabelle disponibili che riguardano i frontalieri (codici px-x-03020...)."""
+    print("\n--- DIAGNOSTICA: tabelle frontalieri disponibili nell'API ---")
+    status, body = get(f"{BASE}/{LANG}/")
+    print("Elenco tabelle, codice HTTP:", status)
+    try:
+        items = json.loads(body)
+    except ValueError:
+        print("Risposta non leggibile:", body[:500])
+        return
+    trovate = [i for i in items if str(i.get("dbid", i.get("id", ""))).startswith("px-x-03020")]
+    for i in trovate:
+        print(i.get("dbid", i.get("id")), "|", i.get("text"))
+    print(f"Tabelle frontalieri trovate: {len(trovate)} (su {len(items)} totali)")
 
 
 def main():
-    # 1. Download (urllib è nella libreria standard: niente da installare)
-    with urllib.request.urlopen(URL, timeout=60) as r:
-        status = r.status
-        raw = r.read()
+    status, raw = get(URL)
     print("Codice HTTP:", status)
+    if status != 200:
+        print("Risposta dell'UST:", raw[:500].decode("utf-8", "replace"))
+        diagnostica()
+        sys.exit(1)
 
-    # 2. Salvataggio del file originale + provenienza
     ts = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     os.makedirs(OUT_DIR, exist_ok=True)
-    meta_path = os.path.join(OUT_DIR, f"{ts}_metadata.json")
-    with open(meta_path, "wb") as f:
+    with open(os.path.join(OUT_DIR, f"{ts}_metadata.json"), "wb") as f:
         f.write(raw)
     prov = {
         "source": "UST/BFS STAT-TAB PxWeb API v1",
@@ -46,7 +71,6 @@ def main():
     with open(os.path.join(OUT_DIR, f"{ts}_provenance.json"), "w") as f:
         json.dump(prov, f, indent=2)
 
-    # 3. Riepilogo da incollare in chat
     meta = json.loads(raw)
     print("TITOLO:", meta.get("title"))
     tot = 1
@@ -56,7 +80,6 @@ def main():
         print("   primi :", list(zip(v["values"][:4], v["valueTexts"][:4])))
         print("   ultimi:", list(zip(v["values"][-4:], v["valueTexts"][-4:])))
     print(f"Celle totali: {tot:,}")
-    print(f"\nFile salvati in: {os.path.abspath(OUT_DIR)}")
 
 
 if __name__ == "__main__":
