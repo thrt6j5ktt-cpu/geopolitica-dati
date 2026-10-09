@@ -1,90 +1,99 @@
 """
-Acquisizione UST/BFS (frontalieri) — eseguito da GitHub Actions, non sul PC.
+Acquisizione UST/BFS — Frontalieri stranieri (Swiss Stats Explorer, SDMX)
+Eseguito da GitHub Actions, non sul PC.
 
-Versione 2: se l'UST rifiuta la richiesta, lo script non si limita a fallire
-ma stampa la risposta dell'UST e l'elenco delle tabelle "frontalieri" che
-l'API conosce davvero, così capiamo subito il codice tabella corretto.
+Fonte: UST, dataflow DF_GGS_1 (agenzia CH1.GGS)
+"Frontalieri stranieri secondo il Cantone di lavoro, l'attività economica,
+il Paese di residenza e il sesso" — trimestrale dal 2002.
+Sostituisce la vecchia tabella PX px-x-0302010000_105, interrotta al 3° trim. 2025.
+
+Salva nel livello Bronze (mai modificati):
+  bronze/bfs_sse/DF_GGS_1/<timestamp>_struttura.json   -> dimensioni e codici
+  bronze/bfs_sse/DF_GGS_1/<timestamp>_dati.csv.gz      -> tutti i dati, con etichette
+  bronze/bfs_sse/DF_GGS_1/<timestamp>_provenance.json  -> da dove, quando, impronta
 """
 import os
 import sys
+import csv
+import io
+import gzip
 import json
 import hashlib
 import datetime as dt
 import urllib.request
 import urllib.error
 
-TABLE_ID = "px-x-0302010000_105"
-LANG = "it"
-BASE = "https://www.pxweb.bfs.admin.ch/api/v1"
-URL = f"{BASE}/{LANG}/{TABLE_ID}/{TABLE_ID}.px"
-OUT_DIR = os.path.join("bronze", "bfs", TABLE_ID, "metadata")
-HEADERS = {"User-Agent": "geopolitica-dati/1.0 (GitHub Actions)", "Accept": "application/json"}
+AGENCY = "CH1.GGS"
+DATAFLOW = "DF_GGS_1"
+VERSION = "1.0.0"
+BASE = "https://disseminate.stats.swiss/rest"
+URL_DATI = (f"{BASE}/data/{AGENCY},{DATAFLOW},{VERSION}/all"
+            "?dimensionAtObservation=AllDimensions&format=csvfilewithlabels")
+URL_STRUTTURA = (f"{BASE}/v2/structure/dataflow/{AGENCY}/{DATAFLOW}/{VERSION}"
+                 "?references=all&detail=referencepartial")
+OUT_DIR = os.path.join("bronze", "bfs_sse", DATAFLOW)
 
 
-def get(url):
-    """Esegue una GET e restituisce (codice HTTP, contenuto in byte)."""
-    req = urllib.request.Request(url, headers=HEADERS)
+def get(url, accept):
+    req = urllib.request.Request(url, headers={
+        "User-Agent": "geopolitica-dati/1.0 (GitHub Actions)",
+        "Accept": accept,
+        "Accept-Language": "it",
+    })
     try:
-        with urllib.request.urlopen(req, timeout=60) as r:
+        with urllib.request.urlopen(req, timeout=300) as r:
             return r.status, r.read()
     except urllib.error.HTTPError as e:
         return e.code, e.read()
 
 
-def diagnostica():
-    """Elenca le tabelle disponibili che riguardano i frontalieri (codici px-x-03020...)."""
-    print("\n--- DIAGNOSTICA: tabelle frontalieri disponibili nell'API ---")
-    status, body = get(f"{BASE}/{LANG}/")
-    print("Elenco tabelle, codice HTTP:", status)
-    try:
-        items = json.loads(body)
-    except ValueError:
-        print("Risposta non leggibile:", body[:500])
-        return
-    print("Struttura dei primi 3 elementi:")
-    for i in items[:3]:
-        print("  ", json.dumps(i, ensure_ascii=False))
-    parole = ("frontal", "0302", "grenzg")
-    trovate = [i for i in items
-               if any(p in json.dumps(i, ensure_ascii=False).lower() for p in parole)]
-    for i in trovate:
-        print("TROVATA:", json.dumps(i, ensure_ascii=False))
-    print(f"Tabelle frontalieri trovate: {len(trovate)} (su {len(items)} totali)")
-
-
 def main():
-    status, raw = get(URL)
-    print("Codice HTTP:", status)
-    if status != 200:
-        print("Risposta dell'UST:", raw[:500].decode("utf-8", "replace"))
-        diagnostica()
-        sys.exit(1)
-
     ts = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     os.makedirs(OUT_DIR, exist_ok=True)
-    with open(os.path.join(OUT_DIR, f"{ts}_metadata.json"), "wb") as f:
-        f.write(raw)
+
+    # 1. Struttura (quali dimensioni e codici esistono)
+    st_s, st_raw = get(URL_STRUTTURA, "application/vnd.sdmx.structure+json; charset=utf-8; version=1.0")
+    print("Struttura, codice HTTP:", st_s)
+    if st_s != 200:
+        print("Risposta:", st_raw[:500].decode("utf-8", "replace"))
+        sys.exit(1)
+    with open(os.path.join(OUT_DIR, f"{ts}_struttura.json"), "wb") as f:
+        f.write(st_raw)
+
+    # 2. Dati completi in CSV con etichette
+    d_s, d_raw = get(URL_DATI, "text/csv")
+    print("Dati, codice HTTP:", d_s, "| dimensione:", f"{len(d_raw)/1e6:.1f} MB")
+    if d_s != 200:
+        print("Risposta:", d_raw[:500].decode("utf-8", "replace"))
+        sys.exit(1)
+    with gzip.open(os.path.join(OUT_DIR, f"{ts}_dati.csv.gz"), "wb") as f:
+        f.write(d_raw)
+
+    # 3. Provenienza
     prov = {
-        "source": "UST/BFS STAT-TAB PxWeb API v1",
-        "table_id": TABLE_ID,
-        "url": URL,
-        "retrieved_at_utc": ts,
-        "http_status": status,
-        "sha256": hashlib.sha256(raw).hexdigest(),
-        "bytes": len(raw),
+        "fonte": "UST/BFS — Swiss Stats Explorer (SDMX REST)",
+        "dataflow": f"{AGENCY}:{DATAFLOW}({VERSION})",
+        "url_dati": URL_DATI,
+        "url_struttura": URL_STRUTTURA,
+        "scaricato_utc": ts,
+        "sha256_dati": hashlib.sha256(d_raw).hexdigest(),
+        "byte_dati": len(d_raw),
+        "licenza": "OGD UST: uso libero con citazione della fonte; uso commerciale previo consenso",
     }
     with open(os.path.join(OUT_DIR, f"{ts}_provenance.json"), "w") as f:
-        json.dump(prov, f, indent=2)
+        json.dump(prov, f, indent=2, ensure_ascii=False)
 
-    meta = json.loads(raw)
-    print("TITOLO:", meta.get("title"))
-    tot = 1
-    for v in meta["variables"]:
-        tot *= len(v["values"])
-        print(f"{v['code']} | {v['text']} | {len(v['values'])} valori")
-        print("   primi :", list(zip(v["values"][:4], v["valueTexts"][:4])))
-        print("   ultimi:", list(zip(v["values"][-4:], v["valueTexts"][-4:])))
-    print(f"Celle totali: {tot:,}")
+    # 4. Riepilogo da incollare in chat
+    righe = list(csv.reader(io.StringIO(d_raw.decode("utf-8-sig"))))
+    intest, dati = righe[0], righe[1:]
+    print("\nCOLONNE:", intest)
+    print("RIGHE DI DATI:", len(dati))
+    for r in dati[:3]:
+        print("ESEMPIO:", r)
+    tcol = next((i for i, c in enumerate(intest) if c.startswith("TIME_PERIOD")), None)
+    if tcol is not None:
+        periodi = sorted({r[tcol] for r in dati if len(r) > tcol})
+        print("PERIODO:", periodi[0], "->", periodi[-1], f"({len(periodi)} trimestri)")
 
 
 if __name__ == "__main__":
