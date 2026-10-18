@@ -28,7 +28,7 @@ Ogni numero pubblicato deve poter essere ricondotto alla sua fonte, alla data di
             ▼  Git folder (Pull)
  Databricks Free Edition
    02_silver_frontalieri  ──►  tabelle Silver (pulite + controlli qualità)
-   03_gold_...            ──►  tabelle Gold (indicatori)            [da fare]
+   03_gold_frontalieri    ──►  tabelle Gold (indicatori + verifiche)
             │
             ▼
  Grafici  ──►  Articolo LinkedIn + Paper PDF                       [da fare]
@@ -38,7 +38,7 @@ Ogni numero pubblicato deve poter essere ricondotto alla sua fonte, alla data di
 |---|---|---|
 | **Bronze** | GitHub, cartella `bronze/` | File originali UST, uno per download, con provenienza e impronta SHA-256 |
 | **Silver** | Databricks, `workspace.frontalieri.silver_*` | Dati puliti, nomi italiani, controlli di qualità superati |
-| **Gold** | Databricks, `workspace.frontalieri.gold_*` | Indicatori per grafici e articolo *(da fare)* |
+| **Gold** | Databricks, `workspace.frontalieri.gold_*` | Indicatori, verifiche dell'ipotesi, dati per grafici e articolo |
 
 ---
 
@@ -50,6 +50,7 @@ geopolitica-dati/
 ├── DOCUMENTAZIONE.md                  diario dei lavori, decisioni, errori e soluzioni
 ├── scarica_bfs.py                     download dati UST (eseguito da GitHub, non sul PC)
 ├── 02_silver_frontalieri.ipynb        notebook Databricks: Bronze → Silver
+├── 03_gold_frontalieri.ipynb          notebook Databricks: Silver → Gold (verifiche)
 ├── .github/workflows/scarica_bfs.yml  il "robot": quando eseguire il download
 └── bronze/bfs_sse/DF_GGS_1/           dati grezzi scaricati
 ```
@@ -60,7 +61,7 @@ geopolitica-dati/
 
 1. **Automatico:** il 1° di ogni mese alle 06:00 UTC GitHub scarica i dati nuovi in `bronze/`.
 2. **Manuale (se serve subito):** GitHub → *Actions* → *Scarica dati UST* → *Run workflow*.
-3. **In Databricks:** nel Git folder `geopolitica-dati` → *Pull* → aprire `02_silver_frontalieri` → *Run all*.
+3. **In Databricks:** nel Git folder `geopolitica-dati` → *Pull* → *Run all* su `02_silver_frontalieri`, poi su `03_gold_frontalieri`.
 
 ---
 
@@ -72,8 +73,8 @@ geopolitica-dati/
 | 2. Fattibilità (fonti, costi, strumenti) | completata |
 | 3. Progettazione (architettura Bronze/Silver/Gold) | completata |
 | 4. Implementazione — acquisizione automatica (Bronze) | **verificata** (9.10.2026) |
-| 4. Implementazione — pulizia (Silver) | in corso |
-| 4. Implementazione — indicatori (Gold) | non iniziata |
+| 4. Implementazione — pulizia (Silver) | **verificata** (11.10.2026) |
+| 4. Implementazione — indicatori (Gold) | in corso |
 | 5–8. Validazione, analisi, grafici, consegna | non iniziate |
 | 9–10. Riutilizzo e manutenzione | aggiornamento mensile già attivo |
 

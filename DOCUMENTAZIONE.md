@@ -3,7 +3,7 @@
 Documento di lavoro: si aggiorna a ogni blocco completato.
 Serve a tre cose: capire cosa è stato fatto e perché, ripetere il lavoro, riprendere il progetto in una nuova sessione.
 
-**Ultimo aggiornamento:** 9 ottobre 2026
+**Ultimo aggiornamento:** 12 ottobre 2026
 
 ## Indice
 1. [Domanda di ricerca e perimetro](#1-domanda-di-ricerca-e-perimetro)
@@ -116,7 +116,40 @@ Serve a tre cose: capire cosa è stato fatto e perché, ripetere il lavoro, ripr
 
 **Tabelle prodotte:** `workspace.frontalieri.silver_frontalieri_cantone`, `workspace.frontalieri.silver_frontalieri_settori`.
 
-### Gold — indicatori *(da fare)*
+**Come interrogarle in SQL:** in un notebook, cella che inizia con `%sql`; oppure *SQL Editor* (menu a sinistra). Nome completo obbligatorio: `workspace.frontalieri.<tabella>`.
+
+**Prime evidenze (11.10.2026, da confermare nel livello Gold):**
+- Frontalieri residenti in Italia attivi in Ticino: 71'593 (2021-Q1) → picco 81'035 (2023-Q3) → 78'813 (2026-Q2), −2,7% dal picco.
+- Il picco coincide con il trimestre di entrata in vigore dell'accordo (17.7.2023): associazione temporale, non prova causale.
+- Il Ticino assorbe circa l'86% dei frontalieri residenti in Italia.
+- Attenzione alla stagionalità (il 3° trimestre tende a essere più alto): confrontare sempre trimestri omologhi.
+
+### Gold — indicatori e verifiche (`03_gold_frontalieri.ipynb`, Databricks)
+
+**Ipotesi da verificare:** dal 2023 la crescita dei frontalieri italiani si è fermata, a differenza degli altri frontalieri.
+Risultato atteso: associazione temporale (coerente / non coerente con l'ipotesi), **non** prova causale.
+
+**Scelte di metodo (parametri in cima al notebook):**
+- **Rottura:** 2023-Q2 = ultimo trimestre prima dell'entrata in vigore (17.7.2023). **Sensitività:** 2023-Q4 (applicazione fiscale dal 1.1.2024).
+- **Finestra "prima":** 4 anni prima della rottura (es. 2019-Q2 → 2023-Q2). **"Dopo":** dalla rottura all'ultimo dato.
+- **Misura:** crescita media annua composta (%), confrontabile tra finestre di durata diversa.
+- **Gruppo trattato:** residenti in Italia che lavorano in TI+GR+VS (cantoni del regime transitorio).
+- **Gruppi di controllo:** residenti in Francia a GE+VD; residenti in Germania (tutta la Svizzera). Non toccati dall'accordo IT-CH.
+- **Differenza nelle differenze (pp):** (cambio di crescita del trattato) − (cambio di crescita del controllo). Negativa = gli italiani hanno rallentato più del controllo.
+- **Stagionalità:** variazioni sempre tra trimestri omologhi (`var_annua_pct` = stesso trimestre dell'anno prima).
+
+**Tre verifiche:**
+1. Traiettoria prima/dopo (gruppo trattato).
+2. Confronto con i controlli (differenza nelle differenze).
+3. Cantoni (TI, GR, VS) e sezioni economiche in Ticino.
+
+**Controlli di qualità:** [bloccante] Gold = Silver sull'ultimo dato; [bloccante] indice 2023-Q2 = 100; [bloccante] nessun valore mancante nelle verifiche; [info] somma delle sezioni vs totale.
+
+**Tabelle prodotte:** `gold_serie_gruppi`, `gold_verifica_traiettoria`, `gold_cantoni_italiani`, `gold_settori_ticino`.
+
+**Grafico:** indice 2023-Q2 = 100, trattato vs controlli, un solo asse, linea all'entrata in vigore, fonte in calce.
+
+**Limiti noti:** finestra "dopo" breve (3 anni); dati di stock; nessuna distinzione vecchi/nuovi frontalieri; altri shock contemporanei (cambio, congiuntura) non controllati.
 
 ---
 
@@ -138,7 +171,8 @@ Serve a tre cose: capire cosa è stato fatto e perché, ripetere il lavoro, ripr
 | 10 | Download filtrato (due estrazioni) | ✔ dati completi, salvati in `bronze/` |
 | 11 | Documentazione (README + questo file) | ✔ |
 | 12 | Collegamento GitHub → Databricks (Git folder) | ✔ |
-| 13 | Caricamento documentazione + notebook su GitHub, Pull, esecuzione notebook Silver | da fare |
+| 13 | Caricamento documentazione + notebook su GitHub, Pull, esecuzione notebook Silver | ✔ (11.10.2026) — tabelle Silver create, controlli superati |
+| 14 | Notebook Gold (tre verifiche + grafico) preparato | ✔ (12.10.2026) — da eseguire in Databricks |
 
 ---
 
@@ -175,8 +209,7 @@ Serve a tre cose: capire cosa è stato fatto e perché, ripetere il lavoro, ripr
 
 ## 9. Prossimi passi
 
-> **PUNTO DI RIPRESA (9.10.2026, sera):** Git folder `geopolitica-dati` creato in Databricks e funzionante.
-> Da fare: (A) caricare su GitHub `README.md`, `DOCUMENTAZIONE.md`, `02_silver_frontalieri.ipynb` → (B) in Databricks, pulsante **main** → **Pull** → (C) aprire `02_silver_frontalieri`, Serverless, **Run all**, verificare controlli di qualità e tabella finale.
+> **PUNTO DI RIPRESA (12.10.2026):** notebook Gold `03_gold_frontalieri.ipynb` preparato e testato su dati di prova. Da fare: caricarlo su GitHub → Pull in Databricks → Run all → leggere i risultati delle tre verifiche.
 
 1. Collegare il repository a Databricks (Git folder) ✔ — eseguire `02_silver_frontalieri` → verificare i controlli di qualità.
 2. Notebook Gold: indicatori (variazioni annue, indice base 2019 = 100, quota italiani in Ticino, confronto con controllo francese, settori).
