@@ -1,0 +1,19 @@
+{
+  "fonte": "UST/BFS — Swiss Stats Explorer (SDMX REST)",
+  "dataflow": "CH1.GGS:DF_GGS_1(1.0.0)",
+  "url_struttura": "https://disseminate.stats.swiss/rest/v2/structure/dataflow/CH1.GGS/DF_GGS_1/1.0.0?references=all&detail=referencepartial",
+  "scaricato_utc": "20261101T064803Z",
+  "licenza": "OGD UST: uso libero con citazione della fonte; uso commerciale previo consenso",
+  "estrazioni": {
+    "totale_per_cantone": {
+      "url": "https://disseminate.stats.swiss/rest/data/CH1.GGS,DF_GGS_1,1.0.0/_T.IT+FR+DE+AT+_T.Q._T.?dimensionAtObservation=AllDimensions&format=csvfilewithlabels",
+      "sha256": "16c197410beb889d5697f127c0c7ccbf27b481caf49322e4f98f2e250d2d0689",
+      "byte": 3467701
+    },
+    "settori_cantoni_confine": {
+      "url": "https://disseminate.stats.swiss/rest/data/CH1.GGS,DF_GGS_1,1.0.0/_T+1+2+3+A+B+C+D+E+F+G+H+I+J+K+L+M+N+O+P+Q+R+S+T+U.IT+FR+_T.Q._T.21+18+23+25+22+_T?dimensionAtObservation=AllDimensions&format=csvfilewithlabels",
+      "sha256": "ecd2ce14a6b5d3acc851a4055afaaba2824267140c5758a99c0713bb2469f373",
+      "byte": 13006882
+    }
+  }
+}
